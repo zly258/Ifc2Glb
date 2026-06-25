@@ -1,0 +1,17 @@
+﻿Third Party Notices / 第三方组件声明
+
+This software references xBIM Toolkit packages.
+本软件引用 xBIM Toolkit 相关组件。
+
+xBIM Toolkit packages used directly or transitively:
+- Xbim.Geometry
+- Xbim.ModelGeometry.Scene
+- Xbim.Geometry.Engine.Interop
+- Xbim.Essentials / Xbim.Ifc
+- Xbim.Common
+
+xBIM Geometry provides IFC geometry generation and tessellation support. It depends on native Open Cascade geometry components and is intended for Windows desktop deployment in this project.
+xBIM Geometry 用于 IFC 几何生成与三角化。当前项目按 Windows 桌面工具方式交付。
+
+Please keep xBIM license notices when distributing this tool.
+发布或分发本工具时，请保留 xBIM 相关许可证与版权声明。
