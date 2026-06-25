@@ -12,6 +12,12 @@ internal sealed record ConversionResult
 
     public int PrimitiveCount { get; init; }
 
+    public int UniqueGeometryCount { get; init; }
+
+    public int ReusedGeometryCount { get; init; }
+
+    public int MeshCount { get; init; }
+
     public int TriangleCount { get; init; }
 
     public int VertexCount { get; init; }

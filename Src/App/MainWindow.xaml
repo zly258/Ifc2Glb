@@ -5,10 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="IFC to GLB 批量转换器"
-        Width="1180"
-        Height="820"
-        MinWidth="980"
-        MinHeight="680"
+        Width="1160"
+        Height="760"
+        MinWidth="960"
+        MinHeight="620"
         WindowStartupLocation="CenterScreen"
         FontFamily="Microsoft YaHei UI, Microsoft YaHei, Segoe UI"
         Background="#F3F6FB"
@@ -19,20 +19,36 @@
         <SolidColorBrush x:Key="CardBrush" Color="#FFFFFFFF"/>
         <SolidColorBrush x:Key="CardBorderBrush" Color="#DDE5F0"/>
         <SolidColorBrush x:Key="TextBrush" Color="#1F2937"/>
-        <SolidColorBrush x:Key="MutedTextBrush" Color="#6B7280"/>
+        <SolidColorBrush x:Key="MutedTextBrush" Color="#64748B"/>
         <SolidColorBrush x:Key="AccentBrush" Color="#2563EB"/>
         <SolidColorBrush x:Key="AccentHoverBrush" Color="#1D4ED8"/>
-        <SolidColorBrush x:Key="SoftAccentBrush" Color="#EFF6FF"/>
+
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
+        <Style x:Key="SectionTitleText" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="CellTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="Margin" Value="10,0"/>
+        </Style>
 
         <Style x:Key="FluentButton" TargetType="{x:Type Button}">
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="MinWidth" Value="78"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="MinWidth" Value="76"/>
             <Setter Property="Padding" Value="14,0"/>
             <Setter Property="Background" Value="#FFFFFF"/>
             <Setter Property="BorderBrush" Value="#CBD5E1"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
-            <Setter Property="FontSize" Value="13"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -100,15 +116,14 @@
             </Setter>
         </Style>
 
-        <Style TargetType="{x:Type TextBox}">
-            <Setter Property="Height" Value="34"/>
+        <Style x:Key="InputTextBoxStyle" TargetType="{x:Type TextBox}">
+            <Setter Property="Height" Value="32"/>
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderBrush" Value="#CBD5E1"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
-            <Setter Property="FontSize" Value="13"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type TextBox}">
@@ -134,9 +149,8 @@
 
         <Style TargetType="{x:Type CheckBox}">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="VerticalAlignment" Value="Top"/>
-            <Setter Property="Margin" Value="0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,18,0"/>
         </Style>
 
         <Style TargetType="{x:Type DataGrid}">
@@ -148,9 +162,9 @@
             <Setter Property="GridLinesVisibility" Value="Horizontal"/>
             <Setter Property="HorizontalGridLinesBrush" Value="#E5E7EB"/>
             <Setter Property="VerticalGridLinesBrush" Value="#E5E7EB"/>
-            <Setter Property="ColumnHeaderHeight" Value="36"/>
-            <Setter Property="RowHeight" Value="34"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="ColumnHeaderHeight" Value="34"/>
+            <Setter Property="RowHeight" Value="32"/>
+            <Setter Property="CanUserResizeRows" Value="False"/>
         </Style>
 
         <Style TargetType="{x:Type DataGridColumnHeader}">
@@ -160,11 +174,13 @@
             <Setter Property="BorderBrush" Value="#E5E7EB"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
             <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
         </Style>
 
         <Style TargetType="{x:Type DataGridCell}">
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Padding" Value="0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
@@ -179,37 +195,14 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="170"/>
+            <RowDefinition Height="*" MinHeight="180"/>
+            <RowDefinition Height="6"/>
+            <RowDefinition Height="150" MinHeight="90"/>
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0"
-                Background="{StaticResource CardBrush}"
-                BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="22,18">
-            <DockPanel LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left">
-                    <TextBlock Text="IFC → GLB 批量转换器"
-                               FontSize="22"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextBrush}"/>
-                    <TextBlock Margin="0,5,0,0"
-                               Text="面向大 IFC 的串行转换工具：逐文件打开、逐文件释放、GLB 二进制流式写入。"
-                               FontSize="13"
-                               Foreground="{StaticResource MutedTextBrush}"/>
-                </StackPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="StartButton" Style="{StaticResource PrimaryButton}" Width="104" Margin="0,0,10,0" Content="开始转换" Click="Start_Click"/>
-                    <Button x:Name="CancelButton" Style="{StaticResource FluentButton}" Width="82" Content="取消" IsEnabled="False" Click="Cancel_Click"/>
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <Border Grid.Row="1"
-                Margin="18,16,18,0"
-                Padding="16"
+                Margin="14,14,14,0"
+                Padding="14"
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource CardBorderBrush}"
                 BorderThickness="1"
@@ -218,96 +211,55 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
+
                 <DockPanel Grid.Row="0" LastChildFill="False">
                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                        <Button Style="{StaticResource FluentButton}" Width="96" Margin="0,0,10,0" Content="添加 IFC" Click="AddFiles_Click"/>
-                        <Button Style="{StaticResource FluentButton}" Width="82" Margin="0,0,10,0" Content="移除" Click="RemoveSelected_Click"/>
-                        <Button Style="{StaticResource FluentButton}" Width="82" Content="清空" Click="ClearJobs_Click"/>
+                        <Button Style="{StaticResource FluentButton}" Width="92" Margin="0,0,8,0" Content="添加 IFC" Click="AddFiles_Click"/>
+                        <Button Style="{StaticResource FluentButton}" Width="76" Margin="0,0,8,0" Content="移除" Click="RemoveSelected_Click"/>
+                        <Button Style="{StaticResource FluentButton}" Width="76" Content="清空" Click="ClearJobs_Click"/>
                     </StackPanel>
-                    <TextBlock DockPanel.Dock="Right"
-                               VerticalAlignment="Center"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               Text="支持同时选择多个 .ifc / .ifczip，转换时仍按队列串行处理。"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="StartButton" Style="{StaticResource PrimaryButton}" Width="104" Margin="0,0,8,0" Content="开始转换" Click="Start_Click"/>
+                        <Button x:Name="CancelButton" Style="{StaticResource FluentButton}" Width="76" Content="取消" IsEnabled="False" Click="Cancel_Click"/>
+                    </StackPanel>
                 </DockPanel>
 
-                <Grid Grid.Row="1" Margin="0,14,0,0">
+                <Grid Grid.Row="1" Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{StaticResource TextBrush}" Text="输出目录"/>
-                    <TextBox x:Name="OutputDirectoryTextBox" Grid.Column="1"/>
-                    <Button Grid.Column="2" Style="{StaticResource FluentButton}" Width="82" Margin="10,0,0,0" Content="浏览" Click="BrowseOutput_Click"/>
+                    <TextBlock Grid.Column="0" Margin="0,0,10,0" Text="输出目录"/>
+                    <TextBox x:Name="OutputDirectoryTextBox" Grid.Column="1" Style="{StaticResource InputTextBoxStyle}"/>
+                    <Button Grid.Column="2" Style="{StaticResource FluentButton}" Width="76" Margin="8,0,0,0" Content="浏览" Click="BrowseOutput_Click"/>
                 </Grid>
             </Grid>
         </Border>
 
         <Border x:Name="SettingsPanel"
-                Grid.Row="2"
-                Margin="18,12,18,0"
-                Padding="16"
+                Grid.Row="1"
+                Margin="14,8,14,0"
+                Padding="12"
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource CardBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="12">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <DockPanel Grid.Row="0" Margin="0,0,0,12">
-                    <TextBlock Text="转换设置"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextBrush}"/>
-                    <TextBlock HorizontalAlignment="Right"
-                               Foreground="{StaticResource MutedTextBrush}"
-                               Text="建议保持默认：更适合大模型和 Web 端 GLB 使用。"/>
-                </DockPanel>
-
-                <UniformGrid Grid.Row="1" Columns="4">
-                    <Border Margin="0,0,10,0" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10">
-                        <StackPanel>
-                            <CheckBox x:Name="IncludeSpacesCheckBox" Content="导出 IfcSpace"/>
-                            <TextBlock Margin="0,7,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="12"
-                                       Text="导出房间、空间等 IfcSpace 几何。默认关闭，可减少文件体积；需要空间体块或房间点击时再开启。"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Margin="0,0,10,0" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10">
-                        <StackPanel>
-                            <CheckBox x:Name="IncludeOpeningsCheckBox" Content="导出 Opening"/>
-                            <TextBlock Margin="0,7,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="12"
-                                       Text="导出门窗洞口等 Opening 几何。默认关闭；一般展示只需要扣洞后的墙体，不需要单独显示洞口对象。"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Margin="0,0,10,0" Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10">
-                        <StackPanel>
-                            <CheckBox x:Name="YUpCheckBox" Content="转换为 glTF Y-up" IsChecked="True"/>
-                            <TextBlock Margin="0,7,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="12"
-                                       Text="glTF 标准常用 Y 轴向上。开启后更适合 Three.js、Babylon.js、Unity 等下游工具直接加载。"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Padding="12" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10">
-                        <StackPanel>
-                            <CheckBox x:Name="ForceGcCheckBox" Content="每个文件后强制释放内存" IsChecked="True"/>
-                            <TextBlock Margin="0,7,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedTextBrush}" FontSize="12"
-                                       Text="批量转换超大 IFC 时建议开启。每个模型完成后触发托管回收，配合 xBIM Dispose 降低连续任务内存峰值。"/>
-                        </StackPanel>
-                    </Border>
-                </UniformGrid>
-            </Grid>
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource SectionTitleText}" Margin="0,0,18,0" Text="转换设置"/>
+                <WrapPanel VerticalAlignment="Center">
+                    <CheckBox x:Name="IncludeSpacesCheckBox" Content="导出 IfcSpace" ToolTip="导出房间、空间等 IfcSpace 几何。默认关闭，可减少文件体积。"/>
+                    <CheckBox x:Name="IncludeOpeningsCheckBox" Content="导出 Opening" ToolTip="导出门窗洞口等 Opening 几何。默认关闭，一般展示只需要扣洞后的构件。"/>
+                    <CheckBox x:Name="YUpCheckBox" Content="glTF Y-up" IsChecked="True" ToolTip="开启后输出更适合 Three.js、Babylon.js、Unity 等工具直接加载。"/>
+                    <CheckBox x:Name="ForceGcCheckBox" Content="完成后释放内存" IsChecked="True" ToolTip="每个 IFC 完成后触发资源释放和托管回收，降低连续批量转换内存峰值。"/>
+                </WrapPanel>
+            </DockPanel>
         </Border>
 
         <DataGrid x:Name="JobsGrid"
-                  Grid.Row="3"
-                  Margin="18,12,18,0"
+                  Grid.Row="2"
+                  Margin="14,8,14,0"
                   ItemsSource="{Binding Jobs}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
@@ -317,27 +269,35 @@
                   HeadersVisibility="Column"
                   RowHeaderWidth="0">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="IFC 文件" Width="2.2*" Binding="{Binding InputPath}"/>
-                <DataGridTextColumn Header="输出 GLB" Width="2.0*" Binding="{Binding OutputPath}"/>
-                <DataGridTextColumn Header="状态" Width="110" Binding="{Binding Status}"/>
-                <DataGridTemplateColumn Header="进度" Width="170">
+                <DataGridTextColumn Header="IFC 文件" Width="2.2*" Binding="{Binding InputPath}" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="输出 GLB" Width="2.0*" Binding="{Binding OutputPath}" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="状态" Width="100" Binding="{Binding Status}" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTemplateColumn Header="进度" Width="160">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Grid Margin="6,0">
-                                <ProgressBar Minimum="0" Maximum="100" Height="16" Value="{Binding Progress}"/>
-                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11" Text="{Binding ProgressText}"/>
+                            <Grid Margin="10,0" VerticalAlignment="Center">
+                                <ProgressBar Minimum="0" Maximum="100" Height="15" Value="{Binding Progress}"/>
+                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding ProgressText}"/>
                             </Grid>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="构件" Width="80" Binding="{Binding ProductCount}"/>
-                <DataGridTextColumn Header="三角面" Width="90" Binding="{Binding TriangleCount}"/>
-                <DataGridTextColumn Header="消息" Width="1.8*" Binding="{Binding Message}"/>
+                <DataGridTextColumn Header="构件" Width="78" Binding="{Binding ProductCount}" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="三角面" Width="88" Binding="{Binding TriangleCount}" ElementStyle="{StaticResource CellTextStyle}"/>
+                <DataGridTextColumn Header="消息" Width="1.6*" Binding="{Binding Message}" ElementStyle="{StaticResource CellTextStyle}"/>
             </DataGrid.Columns>
         </DataGrid>
 
+        <GridSplitter Grid.Row="3"
+                      Height="6"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      Background="Transparent"
+                      ResizeBehavior="PreviousAndNext"
+                      ResizeDirection="Rows"/>
+
         <Border Grid.Row="4"
-                Margin="18,12,18,18"
+                Margin="14,0,14,14"
                 Padding="0"
                 Background="{StaticResource CardBrush}"
                 BorderBrush="{StaticResource CardBorderBrush}"
@@ -348,20 +308,17 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <Border Grid.Row="0" Padding="14,10" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
-                    <TextBlock Text="转换日志" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+                <Border Grid.Row="0" Padding="12,8" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                    <TextBlock Style="{StaticResource SectionTitleText}" Text="转换日志"/>
                 </Border>
                 <TextBox x:Name="LogTextBox"
                          Grid.Row="1"
                          Margin="10"
-                         Height="Auto"
                          IsReadOnly="True"
                          AcceptsReturn="True"
                          VerticalScrollBarVisibility="Auto"
                          HorizontalScrollBarVisibility="Auto"
-                         TextWrapping="NoWrap"
-                         FontFamily="Consolas"
-                         FontSize="12"/>
+                         TextWrapping="NoWrap"/>
             </Grid>
         </Border>
     </Grid>

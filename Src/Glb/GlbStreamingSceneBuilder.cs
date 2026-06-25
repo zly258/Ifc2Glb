@@ -1,12 +1,12 @@
 ﻿using System.Buffers.Binary;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Ifc2Glb;
 
 internal sealed class GlbStreamingSceneBuilder : IDisposable
 {
+    private readonly string tempDirectory;
     private readonly List<GltfBufferView> bufferViews = [];
     private readonly List<GltfAccessor> accessors = [];
     private readonly List<GltfMaterial> materials = [];
@@ -14,50 +14,58 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
     private readonly List<GltfNode> nodes = [];
     private readonly List<int> sceneNodes = [];
     private readonly Dictionary<string, int> materialMap = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<int, int> nodeMeshMap = [];
+    private readonly Dictionary<string, GltfGeometryResource> geometryMap = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> meshMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly BinaryFileBuffer binary;
     private bool disposed;
 
     public GlbStreamingSceneBuilder(string tempDirectory)
     {
+        this.tempDirectory = tempDirectory;
         Directory.CreateDirectory(tempDirectory);
-        var tempPath = Path.Combine(tempDirectory, "ifc2glb-" + Guid.NewGuid().ToString("N") + ".bin");
+        var tempPath = Path.Combine(tempDirectory, "ifc2glb-bin-" + Guid.NewGuid().ToString("N") + ".tmp");
         binary = new BinaryFileBuffer(tempPath);
     }
 
     public bool AddYUpRootTransform { get; init; } = true;
 
-    public int AddProductNode(ProductMetadata metadata, IReadOnlyList<float> matrix)
-    {
-        var meshIndex = meshes.Count;
-        meshes.Add(new GltfMesh
-        {
-            Name = CreateSafeName(metadata.IfcType, metadata.EntityLabel),
-            Primitives = []
-        });
+    public int UniqueGeometryCount => geometryMap.Count;
 
+    public int MeshCount => meshes.Count;
+
+    public int AddProductNode(ProductMetadata metadata)
+    {
         var nodeIndex = nodes.Count;
         nodes.Add(new GltfNode
         {
             Name = CreateDisplayName(metadata),
-            Mesh = meshIndex,
-            Matrix = matrix.Select(v => (double)v).ToArray(),
-            Extras = new Dictionary<string, object?>
-            {
-                ["GlobalId"] = metadata.GlobalId,
-                ["EntityLabel"] = metadata.EntityLabel,
-                ["IfcType"] = metadata.IfcType,
-                ["Name"] = metadata.Name,
-                ["ObjectType"] = metadata.ObjectType,
-                ["StyleLabel"] = metadata.StyleLabel,
-                ["MaterialName"] = metadata.MaterialName,
-                ["MaterialNames"] = metadata.MaterialNames,
-                ["MaterialSource"] = metadata.MaterialSource
-            }
+            Extras = CreateExtras(metadata)
         });
 
-        nodeMeshMap[nodeIndex] = meshIndex;
         sceneNodes.Add(nodeIndex);
+        return nodeIndex;
+    }
+
+    public int AddShapeNode(int productNodeIndex, ProductMetadata metadata, IReadOnlyList<float> matrix, int meshIndex, int shapeGeometryLabel)
+    {
+        if (productNodeIndex < 0 || productNodeIndex >= nodes.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(productNodeIndex));
+        }
+
+        var extras = CreateExtras(metadata);
+        extras["ShapeGeometryLabel"] = shapeGeometryLabel;
+
+        var nodeIndex = nodes.Count;
+        nodes.Add(new GltfNode
+        {
+            Name = CreateShapeName(metadata, shapeGeometryLabel),
+            Mesh = meshIndex,
+            Matrix = matrix.Select(v => (double)v).ToArray(),
+            Extras = extras
+        });
+
+        nodes[productNodeIndex].AddChild(nodeIndex);
         return nodeIndex;
     }
 
@@ -91,28 +99,72 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
         return index;
     }
 
-    public void AddPrimitiveToNode(int nodeIndex, MeshPrimitiveData primitive, int materialIndex)
+    public bool TryGetGeometry(string geometryKey, out GltfGeometryResource resource)
     {
-        if (!nodeMeshMap.TryGetValue(nodeIndex, out var meshIndex))
+        return geometryMap.TryGetValue(geometryKey, out resource!);
+    }
+
+    public GltfGeometryResource GetOrAddGeometry(string geometryKey, MeshPrimitiveData primitive)
+    {
+        if (geometryMap.TryGetValue(geometryKey, out var resource))
         {
-            throw new InvalidOperationException($"Node {nodeIndex} does not have a mesh.");
+            return resource;
         }
 
         var positionAccessor = AddFloatVec3Accessor(primitive.Positions, GltfBufferViewTarget.ArrayBuffer);
-        var normalAccessor = AddFloatVec3Accessor(primitive.Normals, GltfBufferViewTarget.ArrayBuffer);
-        var indexAccessor = AddIndexAccessor(primitive.Indices);
-
-        meshes[meshIndex].Primitives.Add(new GltfMeshPrimitive
+        int? normalAccessor = null;
+        if (primitive.Normals.Count == primitive.Positions.Count && primitive.Normals.Count > 0)
         {
-            Attributes = new Dictionary<string, int>
-            {
-                ["POSITION"] = positionAccessor,
-                ["NORMAL"] = normalAccessor
-            },
-            Indices = indexAccessor,
-            Material = materialIndex,
-            Mode = 4
+            normalAccessor = AddFloatVec3Accessor(primitive.Normals, GltfBufferViewTarget.ArrayBuffer);
+        }
+
+        var indexAccessor = AddIndexAccessor(primitive.Indices);
+        resource = new GltfGeometryResource
+        {
+            Key = geometryKey,
+            PositionAccessor = positionAccessor,
+            NormalAccessor = normalAccessor,
+            IndexAccessor = indexAccessor,
+            VertexCount = primitive.Positions.Count / 3,
+            IndexCount = primitive.Indices.Count
+        };
+        geometryMap.Add(geometryKey, resource);
+        return resource;
+    }
+
+    public int GetOrAddMesh(string meshKey, string meshName, GltfGeometryResource geometry, int materialIndex)
+    {
+        if (meshMap.TryGetValue(meshKey, out var meshIndex))
+        {
+            return meshIndex;
+        }
+
+        var attributes = new Dictionary<string, int>
+        {
+            ["POSITION"] = geometry.PositionAccessor
+        };
+        if (geometry.NormalAccessor.HasValue)
+        {
+            attributes["NORMAL"] = geometry.NormalAccessor.Value;
+        }
+
+        meshIndex = meshes.Count;
+        meshes.Add(new GltfMesh
+        {
+            Name = string.IsNullOrWhiteSpace(meshName) ? $"Mesh_{meshIndex}" : meshName,
+            Primitives =
+            [
+                new GltfMeshPrimitive
+                {
+                    Attributes = attributes,
+                    Indices = geometry.IndexAccessor,
+                    Material = materialIndex,
+                    Mode = 4
+                }
+            ]
         });
+        meshMap.Add(meshKey, meshIndex);
+        return meshIndex;
     }
 
     public void Save(string outputPath)
@@ -130,17 +182,15 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
 
         binary.FlushAndClose();
 
-        var finalNodes = nodes.ToList();
         var finalSceneNodes = sceneNodes.ToArray();
-
         if (AddYUpRootTransform)
         {
-            var rootIndex = finalNodes.Count;
-            finalNodes.Add(new GltfNode
+            var rootIndex = nodes.Count;
+            nodes.Add(new GltfNode
             {
                 Name = "Root_Z_UP_to_Y_UP",
                 Matrix = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-                Children = finalSceneNodes
+                Children = finalSceneNodes.ToList()
             });
             finalSceneNodes = [rootIndex];
         }
@@ -154,7 +204,7 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
             },
             Scene = 0,
             Scenes = [new GltfScene { Nodes = finalSceneNodes }],
-            Nodes = finalNodes,
+            Nodes = nodes,
             Meshes = meshes,
             Materials = materials,
             Buffers = [new GltfBuffer { ByteLength = binary.Length }],
@@ -162,8 +212,22 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
             Accessors = accessors
         };
 
-        var json = JsonSerializer.SerializeToUtf8Bytes(root, JsonOptions.Default);
-        WriteGlb(outputPath, json, binary.Path, binary.Length);
+        var jsonPath = Path.Combine(tempDirectory, "ifc2glb-json-" + Guid.NewGuid().ToString("N") + ".tmp");
+        try
+        {
+            using (var jsonStream = new FileStream(jsonPath, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 1024 * 1024, FileOptions.SequentialScan))
+            {
+                JsonSerializer.Serialize(jsonStream, root, JsonOptions.Default);
+                jsonStream.Flush(true);
+            }
+
+            var jsonLength = new FileInfo(jsonPath).Length;
+            WriteGlb(outputPath, jsonPath, jsonLength, binary.Path, binary.Length);
+        }
+        finally
+        {
+            TryDelete(jsonPath);
+        }
     }
 
     public void Dispose()
@@ -175,6 +239,22 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
 
         disposed = true;
         binary.Dispose();
+    }
+
+    private static Dictionary<string, object?> CreateExtras(ProductMetadata metadata)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["GlobalId"] = metadata.GlobalId,
+            ["EntityLabel"] = metadata.EntityLabel,
+            ["IfcType"] = metadata.IfcType,
+            ["Name"] = metadata.Name,
+            ["ObjectType"] = metadata.ObjectType,
+            ["StyleLabel"] = metadata.StyleLabel,
+            ["MaterialName"] = metadata.MaterialName,
+            ["MaterialNames"] = metadata.MaterialNames,
+            ["MaterialSource"] = metadata.MaterialSource
+        };
     }
 
     private static double Clamp01(double value)
@@ -293,11 +373,11 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
         return index;
     }
 
-    private static void WriteGlb(string outputPath, byte[] jsonBytes, string binaryPath, long binaryLength)
+    private static void WriteGlb(string outputPath, string jsonPath, long jsonLength, string binaryPath, long binaryLength)
     {
-        var jsonPadding = PaddingLength(jsonBytes.Length);
+        var jsonPadding = PaddingLength(jsonLength);
         var binaryPadding = PaddingLength(binaryLength);
-        var paddedJsonLength = jsonBytes.Length + jsonPadding;
+        var paddedJsonLength = jsonLength + jsonPadding;
         var paddedBinaryLength = binaryLength + binaryPadding;
         var totalLength = 12L + 8L + paddedJsonLength + 8L + paddedBinaryLength;
 
@@ -306,7 +386,7 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
             throw new InvalidOperationException("The generated GLB is larger than 4GB. GLB 2.0 uses 32-bit chunk lengths. Please split the IFC or add export filters.");
         }
 
-        using var output = File.Create(outputPath);
+        using var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.Read, 1024 * 1024, FileOptions.SequentialScan);
         Span<byte> header = stackalloc byte[12];
         BinaryPrimitives.WriteUInt32LittleEndian(header[0..4], 0x46546C67);
         BinaryPrimitives.WriteUInt32LittleEndian(header[4..8], 2);
@@ -317,19 +397,21 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
         BinaryPrimitives.WriteUInt32LittleEndian(jsonHeader[0..4], (uint)paddedJsonLength);
         BinaryPrimitives.WriteUInt32LittleEndian(jsonHeader[4..8], 0x4E4F534A);
         output.Write(jsonHeader);
-        output.Write(jsonBytes);
+        CopyFile(jsonPath, output);
         WritePadding(output, jsonPadding, 0x20);
 
         Span<byte> binaryHeader = stackalloc byte[8];
         BinaryPrimitives.WriteUInt32LittleEndian(binaryHeader[0..4], (uint)paddedBinaryLength);
         BinaryPrimitives.WriteUInt32LittleEndian(binaryHeader[4..8], 0x004E4942);
         output.Write(binaryHeader);
-
-        using (var input = File.OpenRead(binaryPath))
-        {
-            input.CopyTo(output, 1024 * 1024);
-        }
+        CopyFile(binaryPath, output);
         WritePadding(output, binaryPadding, 0x00);
+    }
+
+    private static void CopyFile(string inputPath, Stream output)
+    {
+        using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, FileOptions.SequentialScan);
+        input.CopyTo(output, 1024 * 1024);
     }
 
     private static int PaddingLength(long length)
@@ -351,223 +433,31 @@ internal sealed class GlbStreamingSceneBuilder : IDisposable
         return $"{name} #{metadata.EntityLabel}";
     }
 
-    private static string CreateSafeName(string ifcType, int entityLabel)
+    private static string CreateShapeName(ProductMetadata metadata, int shapeGeometryLabel)
     {
-        if (string.IsNullOrWhiteSpace(ifcType))
-        {
-            ifcType = "IfcProduct";
-        }
-
-        return $"{ifcType}_{entityLabel}";
-    }
-}
-
-internal enum GltfBufferViewTarget
-{
-    ArrayBuffer = 34962,
-    ElementArrayBuffer = 34963
-}
-
-internal sealed class BinaryFileBuffer : IDisposable
-{
-    private readonly FileStream stream;
-    private bool closed;
-    private long length;
-
-    public BinaryFileBuffer(string path)
-    {
-        Path = path;
-        stream = new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.Read, 1024 * 1024, FileOptions.SequentialScan);
+        var typeName = string.IsNullOrWhiteSpace(metadata.IfcType) ? "IfcProduct" : metadata.IfcType;
+        return $"{typeName}_{metadata.EntityLabel}_Shape_{shapeGeometryLabel}";
     }
 
-    public string Path { get; }
-
-    public long Length => closed ? length : stream.Length;
-
-    public long Align4()
+    private static string CreateSafeMeshName(ProductMetadata metadata, int shapeGeometryLabel)
     {
-        while (stream.Length % 4 != 0)
-        {
-            stream.WriteByte(0);
-        }
-        return stream.Position;
+        var typeName = string.IsNullOrWhiteSpace(metadata.IfcType) ? "IfcProduct" : metadata.IfcType;
+        return $"{typeName}_{shapeGeometryLabel}";
     }
 
-    public void WriteSingle(float value)
+    public static string CreateMeshName(ProductMetadata metadata, int shapeGeometryLabel)
     {
-        Span<byte> buffer = stackalloc byte[4];
-        BinaryPrimitives.WriteSingleLittleEndian(buffer, value);
-        stream.Write(buffer);
+        return CreateSafeMeshName(metadata, shapeGeometryLabel);
     }
 
-    public void WriteUInt16(ushort value)
+    private static void TryDelete(string path)
     {
-        Span<byte> buffer = stackalloc byte[2];
-        BinaryPrimitives.WriteUInt16LittleEndian(buffer, value);
-        stream.Write(buffer);
-    }
-
-    public void WriteUInt32(uint value)
-    {
-        Span<byte> buffer = stackalloc byte[4];
-        BinaryPrimitives.WriteUInt32LittleEndian(buffer, value);
-        stream.Write(buffer);
-    }
-
-    public void FlushAndClose()
-    {
-        if (closed)
-        {
-            return;
-        }
-
-        length = stream.Length;
-        stream.Flush(true);
-        stream.Dispose();
-        closed = true;
-    }
-
-    public void Dispose()
-    {
-        if (!closed)
-        {
-            stream.Dispose();
-            closed = true;
-        }
-
         try
         {
-            File.Delete(Path);
+            File.Delete(path);
         }
         catch
         {
         }
     }
-}
-
-internal static class JsonOptions
-{
-    public static readonly JsonSerializerOptions Default = new()
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
-}
-
-internal sealed record GltfRoot
-{
-    public required GltfAsset Asset { get; init; }
-
-    public required List<GltfBuffer> Buffers { get; init; }
-
-    public required List<GltfBufferView> BufferViews { get; init; }
-
-    public required List<GltfAccessor> Accessors { get; init; }
-
-    public required List<GltfMaterial> Materials { get; init; }
-
-    public required List<GltfMesh> Meshes { get; init; }
-
-    public required List<GltfNode> Nodes { get; init; }
-
-    public required GltfScene[] Scenes { get; init; }
-
-    public int Scene { get; init; }
-}
-
-internal sealed record GltfAsset
-{
-    public required string Version { get; init; }
-
-    public required string Generator { get; init; }
-}
-
-internal sealed record GltfBuffer
-{
-    public long ByteLength { get; init; }
-}
-
-internal sealed record GltfBufferView
-{
-    public int Buffer { get; init; }
-
-    public long ByteOffset { get; init; }
-
-    public long ByteLength { get; init; }
-
-    public int Target { get; init; }
-}
-
-internal sealed record GltfAccessor
-{
-    public int BufferView { get; init; }
-
-    public int ByteOffset { get; init; }
-
-    public int ComponentType { get; init; }
-
-    public int Count { get; init; }
-
-    public required string Type { get; init; }
-
-    public double[]? Min { get; init; }
-
-    public double[]? Max { get; init; }
-}
-
-internal sealed record GltfMaterial
-{
-    public required string Name { get; init; }
-
-    public required GltfPbrMetallicRoughness PbrMetallicRoughness { get; init; }
-
-    public bool DoubleSided { get; init; }
-
-    public string? AlphaMode { get; init; }
-}
-
-internal sealed record GltfPbrMetallicRoughness
-{
-    public required double[] BaseColorFactor { get; init; }
-
-    public double MetallicFactor { get; init; }
-
-    public double RoughnessFactor { get; init; }
-}
-
-internal sealed record GltfMesh
-{
-    public required string Name { get; init; }
-
-    public required List<GltfMeshPrimitive> Primitives { get; init; }
-}
-
-internal sealed record GltfMeshPrimitive
-{
-    public required Dictionary<string, int> Attributes { get; init; }
-
-    public int Indices { get; init; }
-
-    public int Material { get; init; }
-
-    public int Mode { get; init; }
-}
-
-internal sealed record GltfNode
-{
-    public required string Name { get; init; }
-
-    public int? Mesh { get; init; }
-
-    public double[]? Matrix { get; init; }
-
-    public int[]? Children { get; init; }
-
-    public Dictionary<string, object?>? Extras { get; init; }
-}
-
-internal sealed record GltfScene
-{
-    public required int[] Nodes { get; init; }
 }

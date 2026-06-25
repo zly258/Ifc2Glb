@@ -10,7 +10,19 @@
     <AssemblyName>ifc2glb</AssemblyName>
     <RootNamespace>Ifc2Glb</RootNamespace>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
   </PropertyGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="Src\App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Page Include="Src\**\*.xaml" Exclude="Src\App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Xbim.Geometry" Version="6.3.891-netcore" />
   </ItemGroup>
